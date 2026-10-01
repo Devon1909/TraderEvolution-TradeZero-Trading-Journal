@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TraderEvolution & TradeZero Journal</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0f19',
+                        cardBg: '#131a29',
+                        cardHover: '#182033',
+                        borderDark: '#1e293b',
+                        accentPurple: '#6366f1',
+                        accentPurpleHover: '#4f46e5',
+                        pnlGreen: '#10b981',
+                        pnlRed: '#ef4444',
+                        textMuted: '#94a3b8'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js for Equity Curve / Performance Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-darkBg text-slate-100 p-4 md:p-6 lg:p-8">
+
+    <div class="max-w-[1600px] mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-cardBg p-5 rounded-xl border border-borderDark shadow-xl">
+            <div>
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl p-2 bg-indigo-500/10 text-accentPurple rounded-lg border border-indigo-500/20">📈</span>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-tight text-white">TraderEvolution Journal</h1>
+                        <p class="text-xs text-textMuted mt-0.5">Full execution FIFO matching • Auto-saves data locally • TradeZero & TraderEvolution CSV support</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 self-end sm:self-auto">
+                <button id="clearDataBtn" class="px-4 py-2 text-sm font-medium bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 rounded-lg border border-borderDark transition duration-150 flex items-center gap-2">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Clear Data
+                </button>
+                <button id="loadDemoBtn" class="px-4 py-2 text-sm font-medium bg-accentPurple hover:bg-accentPurpleHover text-white rounded-lg transition duration-150 shadow-lg shadow-indigo-500/20 flex items-center gap-2">
+                    <i data-lucide="play" class="w-4 h-4"></i> Load Demo Data
+                </button>
+            </div>
+        </header>
+
+        <div id="dropzone" class="border-2 border-dashed border-slate-700/80 hover:border-accentPurple bg-cardBg/60 hover:bg-cardBg transition-all rounded-xl p-8 text-center cursor-pointer relative group shadow-inner">
+            <input type="file" id="csvFileInput" accept=".csv, .txt" class="hidden" />
+            <div class="flex flex-col items-center justify-center space-y-3">
+                <div class="p-3 bg-slate-800/60 rounded-full text-accentPurple group-hover:scale-110 transition duration-200 border border-slate-700">
+                    <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+                </div>
+                <div class="text-sm text-slate-300 font-medium">
+                    Drag and drop your <span class="text-accentPurple font-semibold">TradeZero</span> or <span class="text-accentPurple font-semibold">TraderEvolution CSV file</span> here, or <span class="text-indigo-400 underline underline-offset-4">browse</span>
+                </div>
+                <p class="text-xs text-textMuted max-w-md">
+                    Parses comma/semicolon-delimited trade logs with automatic execution fee accounting, order side mapping, and full multi-fill FIFO execution matching.
+                </p>
+            </div>
+        </div>
+
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- Row 1 -->
+            <!-- Starting Balance -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Starting Balance</span>
+                <div class="mt-2 flex items-baseline gap-1">
+                    <span class="text-slate-400 font-medium">$</span>
+                    <input type="number" id="startingBalanceInput" value="50000" class="bg-slate-900/80 border border-borderDark rounded px-2 py-1 text-xl font-bold text-white w-full focus:outline-none focus:border-accentPurple transition" />
+                </div>
+                <span class="text-xs text-slate-500 mt-2">Initial portfolio capital</span>
+            </div>
+
+            <!-- Current Balance -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Current Balance</span>
+                <div id="statCurrentBalance" class="text-2xl font-bold text-white mt-2">$50,000.00</div>
+                <span id="statReturnPct" class="text-xs font-medium text-pnlGreen mt-2">+0.00% Return</span>
+            </div>
+
+            <!-- Net P&L -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Net P&L</span>
+                <div id="statNetPnL" class="text-2xl font-bold text-pnlGreen mt-2">+$0.00</div>
+                <span id="statTotalFees" class="text-xs text-textMuted mt-2">Total Fees: $0.00</span>
+            </div>
+
+            <!-- Win Rate -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Win Rate</span>
+                <div id="statWinRate" class="text-2xl font-bold text-white mt-2">0.0%</div>
+                <span id="statWinLossCounts" class="text-xs text-textMuted mt-2">0 Wins / 0 Losses (0 Total)</span>
+            </div>
+
+            <!-- Row 2 -->
+            <!-- Profit Factor -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Profit Factor</span>
+                <div id="statProfitFactor" class="text-2xl font-bold text-white mt-2">0.00</div>
+                <span class="text-xs text-slate-500 mt-2">Gross Win / Gross Loss</span>
+            </div>
+
+            <!-- Trade Expectancy -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Trade Expectancy</span>
+                <div id="statExpectancy" class="text-2xl font-bold text-white mt-2">+$0.00</div>
+                <span class="text-xs text-slate-500 mt-2">Expected return / trade</span>
+            </div>
+
+            <!-- Avg Reward:Risk -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Avg Reward:Risk</span>
+                <div id="statRR" class="text-2xl font-bold text-white mt-2">0.00 : 1</div>
+                <span id="statAvgWinLoss" class="text-xs text-textMuted mt-2">Avg Win: $0.00 / Avg Loss: $0.00</span>
+            </div>
+
+            <!-- Avg Hold (Overall) -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Avg Hold (Overall)</span>
+                <div id="statAvgHold" class="text-2xl font-bold text-white mt-2">0s</div>
+                <span class="text-xs text-slate-500 mt-2">Entry to Exit Avg</span>
+            </div>
+
+            <!-- Row 3 -->
+            <!-- Avg Winner Hold -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Avg Winner Hold</span>
+                <div id="statWinnerHold" class="text-2xl font-bold text-pnlGreen mt-2">0s</div>
+                <span id="statAvgWinSub" class="text-xs text-emerald-400/80 mt-2">Avg Win: $0.00</span>
+            </div>
+
+            <!-- Avg Loser Hold -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Avg Loser Hold</span>
+                <div id="statLoserHold" class="text-2xl font-bold text-pnlRed mt-2">0s</div>
+                <span id="statAvgLossSub" class="text-xs text-rose-400/80 mt-2">Avg Loss: $0.00</span>
+            </div>
+
+            <!-- Gross Profit -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Gross Profit</span>
+                    <span id="statMaxWin" class="text-xs text-pnlGreen font-medium">Max Win: $0.00</span>
+                </div>
+                <div id="statGrossProfit" class="text-2xl font-bold text-pnlGreen mt-2">$0.00</div>
+            </div>
+
+            <!-- Gross Loss -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Gross Loss</span>
+                    <span id="statMaxLoss" class="text-xs text-pnlRed font-medium">Max Loss: $0.00</span>
+                </div>
+                <div id="statGrossLoss" class="text-2xl font-bold text-pnlRed mt-2">$0.00</div>
+            </div>
+
+            <!-- Total Executed Trades (Full Width or 1 Col) -->
+            <div class="bg-cardBg p-4 rounded-xl border border-borderDark shadow-sm flex flex-col justify-between sm:col-span-2 lg:col-span-4">
+                <span class="text-xs font-semibold tracking-wider text-textMuted uppercase">Total Executed Trades</span>
+                <div id="statTotalTrades" class="text-2xl font-bold text-white mt-1">0</div>
+                <span class="text-xs text-slate-500 mt-1">100% Closed Trades Matched via FIFO logic</span>
+            </div>
+
+        </section>
+
+        <section class="bg-cardBg p-5 rounded-xl border border-borderDark shadow-xl space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">📈</span>
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Equity Curve & Performance Chart</h2>
+                        <p class="text-xs text-textMuted">Clean x-axis dates with zero gridlines; full date/time details appear on hover tooltips</p>
+                    </div>
+                </div>
+                <div class="inline-flex p-1 bg-slate-900 rounded-lg border border-borderDark">
+                    <button id="chartModeEquity" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-accentPurple text-white transition">Equity Line</button>
+                    <button id="chartModePnL" class="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-400 hover:text-white transition">Trade P&L Bars</button>
+                </div>
+            </div>
+            <div class="h-72 w-full relative">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </section>
+
+        <section class="bg-cardBg p-5 rounded-xl border border-borderDark shadow-xl space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-borderDark/60 pb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">📅</span>
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Monthly P&L Calendar</h2>
+                        <p class="text-xs text-textMuted">Interactive performance view broken down by calendar days</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 self-center">
+                    <button id="calPrevBtn" class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg border border-borderDark transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                    <span id="calMonthYearLabel" class="text-sm font-bold text-white min-w-[140px] text-center">October 2026</span>
+                    <button id="calNextBtn" class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg border border-borderDark transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                    <button id="calTodayBtn" class="px-3 py-1.5 text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-lg border border-borderDark transition">Today</button>
+                </div>
+            </div>
+
+            <!-- Days of Week Header -->
+            <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-textMuted uppercase py-1">
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+            </div>
+
+            <!-- Calendar Days Grid -->
+            <div id="calendarGrid" class="grid grid-cols-7 gap-1 sm:gap-2">
+                <!-- Dynamically generated days -->
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Daily Performance Table -->
+            <div class="lg:col-span-4 bg-cardBg p-5 rounded-xl border border-borderDark shadow-xl space-y-4 flex flex-col">
+                <div class="flex justify-between items-center border-b border-borderDark/60 pb-3">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>🗓️</span> Daily Performance
+                    </h2>
+                    <span id="dailyDaysCount" class="text-xs font-medium px-2 py-1 bg-slate-900 text-slate-400 rounded-md border border-borderDark">0 Days</span>
+                </div>
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-left text-xs">
+                        <thead class="text-textMuted uppercase border-b border-borderDark/80 bg-slate-900/50">
+                            <tr>
+                                <th class="p-2 font-semibold">Date</th>
+                                <th class="p-2 font-semibold text-center">Trades</th>
+                                <th class="p-2 font-semibold text-right">Daily P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dailyTableBody" class="divide-y divide-borderDark/40">
+                            <tr>
+                                <td colspan="3" class="text-center py-8 text-textMuted">No data loaded</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Executed Trades Log -->
+            <div class="lg:col-span-8 bg-cardBg p-5 rounded-xl border border-borderDark shadow-xl space-y-4 flex flex-col">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-borderDark/60 pb-3">
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>📋</span> Executed Trades Log
+                    </h2>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <div class="relative flex-1 sm:w-60">
+                            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                            <input type="text" id="tradeSearchInput" placeholder="Search Symbol or Date..." class="w-full bg-slate-900 border border-borderDark rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-accentPurple">
+                        </div>
+                        <select id="sideFilterSelect" class="bg-slate-900 border border-borderDark rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-accentPurple">
+                            <option value="ALL">All Sides</option>
+                            <option value="LONG">Long</option>
+                            <option value="SHORT">Short</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto flex-1 max-h-[500px]">
+                    <table class="w-full text-left text-xs whitespace-nowrap">
+                        <thead class="text-textMuted uppercase border-b border-borderDark/80 bg-slate-900/80 sticky top-0 backdrop-blur">
+                            <tr>
+                                <th class="p-2 font-semibold">Entry Time</th>
+                                <th class="p-2 font-semibold">Exit Time</th>
+                                <th class="p-2 font-semibold">Symbol</th>
+                                <th class="p-2 font-semibold">Side</th>
+                                <th class="p-2 font-semibold text-right">Qty</th>
+                                <th class="p-2 font-semibold text-right">Entry</th>
+                                <th class="p-2 font-semibold text-right">Exit</th>
+                                <th class="p-2 font-semibold text-center">Hold Duration</th>
+                                <th class="p-2 font-semibold text-right">Fee</th>
+                                <th class="p-2 font-semibold text-right">Net P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tradesTableBody" class="divide-y divide-borderDark/40">
+                            <tr>
+                                <td colspan="10" class="text-center py-12 text-textMuted">No matching trades found</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+    </div>
+
+    <script>
+        let state = {
+            startingBalance: 50000,
+            trades: [],
+            currentCalendarDate: new Date(),
+            chartMode: 'equity', // 'equity' or 'pnl'
+            searchQuery: '',
+            sideFilter: 'ALL'
+        };
+
+        let performanceChartInstance = null;
+
+        // Initialize lucide icons
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            initEventListeners();
+            loadStateFromStorage();
+            renderAll();
+        });
+
+        function initEventListeners() {
+            // Drag and Drop Zone
+            const dropzone = document.getElementById('dropzone');
+            const csvInput = document.getElementById('csvFileInput');
+
+            dropzone.addEventListener('click', () => csvInput.click());
+            dropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropzone.classList.add('border-accentPurple', 'bg-cardBg');
+            });
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('border-accentPurple', 'bg-cardBg');
+            });
+            dropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('border-accentPurple', 'bg-cardBg');
+                if (e.dataTransfer.files.length) {
+                    handleFileUpload(e.dataTransfer.files[0]);
+                }
+            });
+            csvInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+
+            // Starting balance input
+            const balanceInput = document.getElementById('startingBalanceInput');
+            balanceInput.addEventListener('change', (e) => {
+                const val = parseFloat(e.target.value);
+                state.startingBalance = isNaN(val) ? 50000 : val;
+                saveStateToStorage();
+                renderAll();
+            });
+
+            // Action buttons
+            document.getElementById('clearDataBtn').addEventListener('click', clearData);
+            document.getElementById('loadDemoBtn').addEventListener('click', loadDemoData);
+
+            // Chart toggle
+            document.getElementById('chartModeEquity').addEventListener('click', () => {
+                state.chartMode = 'equity';
+                updateChartToggleButtons();
+                renderChart();
+            });
+            document.getElementById('chartModePnL').addEventListener('click', () => {
+                state.chartMode = 'pnl';
+                updateChartToggleButtons();
+                renderChart();
+            });
+
+            // Calendar Navigation
+            document.getElementById('calPrevBtn').addEventListener('click', () => {
+                state.currentCalendarDate.setMonth(state.currentCalendarDate.getMonth() - 1);
+                renderCalendar();
+            });
+            document.getElementById('calNextBtn').addEventListener('click', () => {
+                state.currentCalendarDate.setMonth(state.currentCalendarDate.getMonth() + 1);
+                renderCalendar();
+            });
+            document.getElementById('calTodayBtn').addEventListener('click', () => {
+                state.currentCalendarDate = new Date();
+                renderCalendar();
+            });
+
+            // Table Filter & Search
+            document.getElementById('tradeSearchInput').addEventListener('input', (e) => {
+                state.searchQuery = e.target.value.toLowerCase();
+                renderTradesTable();
+            });
+            document.getElementById('sideFilterSelect').addEventListener('change', (e) => {
+                state.sideFilter = e.target.value;
+                renderTradesTable();
+            });
+        }
+
+        function updateChartToggleButtons() {
+            const eqBtn = document.getElementById('chartModeEquity');
+            const pnlBtn = document.getElementById('chartModePnL');
+            if (state.chartMode === 'equity') {
+                eqBtn.className = 'px-3 py-1.5 text-xs font-semibold rounded-md bg-accentPurple text-white transition';
+                pnlBtn.className = 'px-3 py-1.5 text-xs font-semibold rounded-md text-slate-400 hover:text-white transition';
+            } else {
+                pnlBtn.className = 'px-3 py-1.5 text-xs font-semibold rounded-md bg-accentPurple text-white transition';
+                eqBtn.className = 'px-3 py-1.5 text-xs font-semibold rounded-md text-slate-400 hover:text-white transition';
+            }
+        }
+
+        function saveStateToStorage() {
+            try {
+                localStorage.setItem('journal_state', JSON.stringify({
+                    startingBalance: state.startingBalance,
+                    trades: state.trades
+                }));
+            } catch (e) {
+                console.error('Failed to save to localStorage', e);
+            }
+        }
+
+        function loadStateFromStorage() {
+            try {
+                const data = localStorage.getItem('journal_state');
+                if (data) {
+                    const parsed = JSON.parse(data);
+                    state.startingBalance = parsed.startingBalance || 50000;
+                    state.trades = (parsed.trades || []).map(t => ({
+                        ...t,
+                        entryTime: new Date(t.entryTime),
+                        exitTime: new Date(t.exitTime)
+                    }));
+                    document.getElementById('startingBalanceInput').value = state.startingBalance;
+                }
+            } catch (e) {
+                console.error('Failed to load from localStorage', e);
+            }
+        }
+
+        function clearData() {
+            state.trades = [];
+            saveStateToStorage();
+            renderAll();
+        }
+
+        function handleFileUpload(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                parseCSVContent(content);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSVContent(content) {
+            const lines = content.split(/\r\n|\n/).map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length < 2) return;
+
+            // Detect delimiter
+            const firstLine = lines[0];
+            const delimiter = firstLine.includes(';') ? ';' : ',';
+
+            const headers = firstLine.split(delimiter).map(h => h.replace(/^["']|["']$/g, '').trim());
+            
+            const rawExecutions = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(delimiter).map(c => c.replace(/^["']|["']$/g, '').trim());
+                if (cols.length < 3) continue;
+
+                const row = {};
+                headers.forEach((h, idx) => {
+                    row[h] = cols[idx] || '';
+                });
+
+                // Standardize TradeZero vs TraderEvolution fields
+                // TradeZero headers: Account, T/D, S/D, Currency, Type, Side, Symbol, Qty, Price, Exec Time, Comm, SEC, TAF, NSCC, Nasdaq, ECN Remove, ECN Add, Gross Proceeds, Net Proceeds
+                // TraderEvolution headers: Order ID, Time, Symbol, Side, Price, Qty, Fee, etc.
+
+                let symbol = row['Symbol'] || row['Ticker'] || row['Instrument'] || '';
+                let sideStr = (row['Side'] || row['Action'] || row['Type'] || '').toUpperCase();
+                let qty = Math.abs(parseFloat(row['Qty'] || row['Quantity'] || row['Shares'] || '0'));
+                let price = parseFloat(row['Price'] || row['Execution Price'] || '0');
+
+                // Aggregate fees for TradeZero or TraderEvolution
+                let fee = 0;
+                if (row['Comm'] !== undefined) {
+                    const comm = parseFloat(row['Comm'] || 0);
+                    const sec = parseFloat(row['SEC'] || 0);
+                    const taf = parseFloat(row['TAF'] || 0);
+                    const nscc = parseFloat(row['NSCC'] || 0);
+                    const nasdaq = parseFloat(row['Nasdaq'] || 0);
+                    const ecnRemove = parseFloat(row['ECN Remove'] || 0);
+                    const ecnAdd = parseFloat(row['ECN Add'] || 0);
+                    fee = Math.abs(comm + sec + taf + nscc + nasdaq + ecnRemove - ecnAdd);
+                } else {
+                    fee = Math.abs(parseFloat(row['Fee'] || row['Commission'] || row['Total Fee'] || '0'));
+                }
+
+                // Date Time Parsing
+                let dateStr = row['T/D'] || row['Date'] || row['Trade Date'] || '';
+                let timeStr = row['Exec Time'] || row['Time'] || row['Timestamp'] || '';
+
+                let execDate = null;
+                if (dateStr && timeStr) {
+                    execDate = new Date(`${dateStr} ${timeStr}`);
+                } else if (dateStr) {
+                    execDate = new Date(dateStr);
+                } else if (timeStr) {
+                    execDate = new Date(timeStr);
+                }
+
+                if (isNaN(execDate) || !execDate) execDate = new Date();
+
+                if (symbol && qty > 0 && price > 0) {
+                    rawExecutions.push({
+                        symbol: symbol.toUpperCase(),
+                        side: sideStr, // B, S, SS, BC, BUY, SELL, SHORT, COVER
+                        qty,
+                        price,
+                        fee,
+                        time: execDate
+                    });
+                }
+            }
+
+            // Sort executions chronologically
+            rawExecutions.sort((a, b) => a.time - b.time);
+
+            // FIFO Matching Algorithm
+            const parsedTrades = matchExecutionsFIFO(rawExecutions);
+            state.trades = parsedTrades;
+            saveStateToStorage();
+            renderAll();
+        }
+
+        function matchExecutionsFIFO(executions) {
+            const inventory = {}; // Symbol -> Queue of open position entries
+            const completedTrades = [];
+
+            executions.forEach(exec => {
+                const sym = exec.symbol;
+                if (!inventory[sym]) inventory[sym] = [];
+
+                const isBuy = ['B', 'BUY', 'BC', 'COVER'].includes(exec.side);
+                const isSell = ['S', 'SELL', 'SS', 'SHORT'].includes(exec.side);
+
+                let remainingQty = exec.qty;
+                const unitFee = exec.fee / exec.qty;
+
+                // Determine current position direction
+                let openPosSide = null;
+                if (inventory[sym].length > 0) {
+                    openPosSide = inventory[sym][0].side; // 'LONG' or 'SHORT'
+                }
+
+                // Check if this execution closes an existing position
+                if (openPosSide && ((openPosSide === 'LONG' && isSell) || (openPosSide === 'SHORT' && isBuy))) {
+                    while (remainingQty > 0 && inventory[sym].length > 0) {
+                        const entry = inventory[sym][0];
+                        const matchedQty = Math.min(remainingQty, entry.qty);
+
+                        // Calculate net PnL
+                        let pnl = 0;
+                        if (openPosSide === 'LONG') {
+                            pnl = (exec.price - entry.price) * matchedQty;
+                        } else {
+                            pnl = (entry.price - exec.price) * matchedQty;
+                        }
+
+                        const matchFee = (entry.unitFee * matchedQty) + (unitFee * matchedQty);
+                        const netPnL = pnl - matchFee;
+
+                        completedTrades.push({
+                            id: Math.random().toString(36).substr(2, 9),
+                            symbol: sym,
+                            side: openPosSide,
+                            qty: matchedQty,
+                            entryPrice: entry.price,
+                            exitPrice: exec.price,
+                            entryTime: entry.time,
+                            exitTime: exec.time,
+                            durationMs: exec.time - entry.time,
+                            fee: matchFee,
+                            grossPnL: pnl,
+                            netPnL: netPnL
+                        });
+
+                        remainingQty -= matchedQty;
+                        entry.qty -= matchedQty;
+
+                        if (entry.qty <= 0) {
+                            inventory[sym].shift();
+                        }
+                    }
+
+                    // If remaining qty exists, open new position in opposite direction
+                    if (remainingQty > 0) {
+                        const newSide = isBuy ? 'LONG' : 'SHORT';
+                        inventory[sym].push({
+                            side: newSide,
+                            qty: remainingQty,
+                            price: exec.price,
+                            unitFee: unitFee,
+                            time: exec.time
+                        });
+                    }
+                } else {
+                    // Opening or adding to position
+                    const newSide = isBuy ? 'LONG' : 'SHORT';
+                    inventory[sym].push({
+                        side: newSide,
+                        qty: remainingQty,
+                        price: exec.price,
+                        unitFee: unitFee,
+                        time: exec.time
+                    });
+                }
+            });
+
+            return completedTrades;
+        }
+
+        function loadDemoData() {
+            const symbols = ['AAPL', 'TSLA', 'NVDA', 'AMD', 'AMZN', 'SPY', 'QQQ', 'MSFT'];
+            const demoTrades = [];
+            const now = new Date();
+            
+            // Generate 35 realistic trades across the last 30 days
+            for (let i = 35; i >= 1; i--) {
+                const tradeDate = new Date(now.getTime() - (i * 20 * 3600 * 1000) - Math.random() * 86400000);
+                const holdSecs = Math.floor(Math.random() * 1200) + 45; // 45s to 20m
+                const exitDate = new Date(tradeDate.getTime() + holdSecs * 1000);
+
+                const sym = symbols[Math.floor(Math.random() * symbols.length)];
+                const side = Math.random() > 0.4 ? 'LONG' : 'SHORT';
+                const qty = Math.floor(Math.random() * 5 + 1) * 100;
+                const entryPrice = Math.round((Math.random() * 200 + 50) * 100) / 100;
+                
+                // 58% win rate probability
+                const isWin = Math.random() < 0.58;
+                const pctChange = isWin ? (Math.random() * 0.025 + 0.003) : -(Math.random() * 0.018 + 0.002);
+                
+                let exitPrice = side === 'LONG' ? entryPrice * (1 + pctChange) : entryPrice * (1 - pctChange);
+                exitPrice = Math.round(exitPrice * 100) / 100;
+
+                const grossPnL = side === 'LONG' ? (exitPrice - entryPrice) * qty : (entryPrice - exitPrice) * qty;
+                const fee = Math.round((qty * 0.005 + 1.5) * 100) / 100;
+                const netPnL = grossPnL - fee;
+
+                demoTrades.push({
+                    id: 'demo_' + i,
+                    symbol: sym,
+                    side: side,
+                    qty: qty,
+                    entryPrice: entryPrice,
+                    exitPrice: exitPrice,
+                    entryTime: tradeDate,
+                    exitTime: exitDate,
+                    durationMs: holdSecs * 1000,
+                    fee: fee,
+                    grossPnL: grossPnL,
+                    netPnL: netPnL
+                });
+            }
+
+            state.trades = demoTrades.sort((a, b) => a.entryTime - b.entryTime);
+            saveStateToStorage();
+            renderAll();
+        }
+
+        function renderAll() {
+            renderStats();
+            renderChart();
+            renderCalendar();
+            renderDailyTable();
+            renderTradesTable();
+        }
+
+        function renderStats() {
+            const trades = state.trades;
+            const startingBal = state.startingBalance;
+
+            let totalNetPnL = 0;
+            let totalFees = 0;
+            let wins = [];
+            let losses = [];
+            let winnerHoldMs = 0;
+            let loserHoldMs = 0;
+            let totalHoldMs = 0;
+
+            trades.forEach(t => {
+                totalNetPnL += t.netPnL;
+                totalFees += t.fee;
+                totalHoldMs += t.durationMs;
+
+                if (t.netPnL > 0) {
+                    wins.push(t.netPnL);
+                    winnerHoldMs += t.durationMs;
+                } else {
+                    losses.push(Math.abs(t.netPnL));
+                    loserHoldMs += t.durationMs;
+                }
+            });
+
+            const currentBal = startingBal + totalNetPnL;
+            const returnPct = startingBal > 0 ? (totalNetPnL / startingBal) * 100 : 0;
+            const winRate = trades.length > 0 ? (wins.length / trades.length) * 100 : 0;
+
+            const grossProfit = wins.reduce((a, b) => a + b, 0);
+            const grossLoss = losses.reduce((a, b) => a + b, 0);
+            const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss) : (grossProfit > 0 ? 999 : 0);
+
+            const avgWin = wins.length > 0 ? grossProfit / wins.length : 0;
+            const avgLoss = losses.length > 0 ? grossLoss / losses.length : 0;
+            const rrRatio = avgLoss > 0 ? (avgWin / avgLoss) : 0;
+
+            const expectancy = trades.length > 0 ? (totalNetPnL / trades.length) : 0;
+
+            const maxWin = wins.length > 0 ? Math.max(...wins) : 0;
+            const maxLoss = losses.length > 0 ? Math.max(...losses) : 0;
+
+            const avgHoldMs = trades.length > 0 ? totalHoldMs / trades.length : 0;
+            const avgWinHoldMs = wins.length > 0 ? winnerHoldMs / wins.length : 0;
+            const avgLossHoldMs = losses.length > 0 ? loserHoldMs / losses.length : 0;
+
+            // DOM Updates
+            document.getElementById('statCurrentBalance').textContent = formatCurrency(currentBal);
+            
+            const retElem = document.getElementById('statReturnPct');
+            retElem.textContent = `${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}% Return`;
+            retElem.className = `text-xs font-medium mt-2 ${returnPct >= 0 ? 'text-pnlGreen' : 'text-pnlRed'}`;
+
+            const pnlElem = document.getElementById('statNetPnL');
+            pnlElem.textContent = `${totalNetPnL >= 0 ? '+' : ''}${formatCurrency(totalNetPnL)}`;
+            pnlElem.className = `text-2xl font-bold mt-2 ${totalNetPnL >= 0 ? 'text-pnlGreen' : 'text-pnlRed'}`;
+
+            document.getElementById('statTotalFees').textContent = `Total Fees: ${formatCurrency(totalFees)}`;
+            document.getElementById('statWinRate').textContent = `${winRate.toFixed(1)}%`;
+            document.getElementById('statWinLossCounts').textContent = `${wins.length} Wins / ${losses.length} Losses (${trades.length} Total)`;
+            document.getElementById('statProfitFactor').textContent = profitFactor > 100 ? '999+' : profitFactor.toFixed(2);
+            
+            const expElem = document.getElementById('statExpectancy');
+            expElem.textContent = `${expectancy >= 0 ? '+' : ''}${formatCurrency(expectancy)}`;
+            expElem.className = `text-2xl font-bold mt-2 ${expectancy >= 0 ? 'text-pnlGreen' : 'text-pnlRed'}`;
+
+            document.getElementById('statRR').textContent = `${rrRatio.toFixed(2)} : 1`;
+            document.getElementById('statAvgWinLoss').textContent = `Avg Win: $${avgWin.toFixed(2)} / Avg Loss: $${avgLoss.toFixed(2)}`;
+
+            document.getElementById('statAvgHold').textContent = formatDuration(avgHoldMs);
+            document.getElementById('statWinnerHold').textContent = formatDuration(avgWinHoldMs);
+            document.getElementById('statLoserHold').textContent = formatDuration(avgLossHoldMs);
+
+            document.getElementById('statAvgWinSub').textContent = `Avg Win: $${avgWin.toFixed(2)}`;
+            document.getElementById('statAvgLossSub').textContent = `Avg Loss: $${avgLoss.toFixed(2)}`;
+
+            document.getElementById('statGrossProfit').textContent = formatCurrency(grossProfit);
+            document.getElementById('statMaxWin').textContent = `Max Win: ${formatCurrency(maxWin)}`;
+
+            document.getElementById('statGrossLoss').textContent = formatCurrency(grossLoss);
+            document.getElementById('statMaxLoss').textContent = `Max Loss: ${formatCurrency(maxLoss)}`;
+
+            document.getElementById('statTotalTrades').textContent = trades.length;
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            
+            if (performanceChartInstance) {
+                performanceChartInstance.destroy();
+            }
+
+            const trades = [...state.trades].sort((a, b) => a.exitTime - b.exitTime);
+
+            if (trades.length === 0) {
+                performanceChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: ['No Data'], datasets: [{ data: [state.startingBalance] }] },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+                return;
+            }
+
+            const labels = [];
+            const fullDateStrings = [];
+            const dataPoints = [];
+            let cumulative = state.startingBalance;
+
+            trades.forEach((t) => {
+                const dateLabel = t.exitTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const fullLabel = formatDateTime(t.exitTime) + ` (${t.symbol})`;
+                labels.push(dateLabel);
+                fullDateStrings.push(fullLabel);
+
+                if (state.chartMode === 'equity') {
+                    cumulative += t.netPnL;
+                    dataPoints.push(cumulative);
+                } else {
+                    dataPoints.push(t.netPnL);
+                }
+            });
+
+            const isEquity = state.chartMode === 'equity';
+
+            performanceChartInstance = new Chart(ctx, {
+                type: isEquity ? 'line' : 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: isEquity ? 'Equity ($)' : 'Trade P&L ($)',
+                        data: dataPoints,
+                        borderColor: '#6366f1',
+                        backgroundColor: isEquity ? 'rgba(99, 102, 241, 0.12)' : dataPoints.map(v => v >= 0 ? '#10b981' : '#ef4444'),
+                        fill: isEquity,
+                        tension: 0.2,
+                        borderWidth: 2,
+                        pointRadius: trades.length > 50 ? 0 : 3,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    if (!tooltipItems.length) return '';
+                                    const index = tooltipItems[0].dataIndex;
+                                    return fullDateStrings[index] || tooltipItems[0].label;
+                                },
+                                label: function(context) {
+                                    const val = context.raw;
+                                    return `${isEquity ? 'Equity' : 'P&L'}: $${val.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { 
+                                color: '#64748b', 
+                                font: { size: 11 },
+                                autoSkip: true,
+                                maxTicksLimit: 10,
+                                maxRotation: 0,
+                                minRotation: 0
+                            }
+                        },
+                        y: {
+                            grid: { color: '#1e293b' },
+                            ticks: { 
+                                color: '#64748b', 
+                                font: { size: 10 },
+                                callback: (value) => '$' + value.toLocaleString()
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const calDate = state.currentCalendarDate;
+            const year = calDate.getFullYear();
+            const month = calDate.getMonth();
+
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            document.getElementById('calMonthYearLabel').textContent = `${monthNames[month]} ${year}`;
+
+            // Map trades by day string YYYY-MM-DD
+            const dailyPnLMap = {};
+            state.trades.forEach(t => {
+                const d = t.exitTime;
+                if (d.getFullYear() === year && d.getMonth() === month) {
+                    const dayKey = d.getDate();
+                    if (!dailyPnLMap[dayKey]) {
+                        dailyPnLMap[dayKey] = { netPnL: 0, count: 0 };
+                    }
+                    dailyPnLMap[dayKey].netPnL += t.netPnL;
+                    dailyPnLMap[dayKey].count += 1;
+                }
+            });
+
+            const firstDayIndex = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            // Blank slots for previous month padding
+            for (let i = 0; i < firstDayIndex; i++) {
+                const blank = document.createElement('div');
+                blank.className = 'h-20 sm:h-24 bg-slate-900/30 rounded-lg border border-borderDark/30 opacity-30';
+                grid.appendChild(blank);
+            }
+
+            const today = new Date();
+
+            // Render days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayData = dailyPnLMap[day];
+                const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+
+                const dayCard = document.createElement('div');
+                let cardStyle = 'bg-cardBg hover:bg-cardHover border-borderDark/60';
+
+                if (dayData) {
+                    if (dayData.netPnL > 0) {
+                        cardStyle = 'bg-emerald-950/30 hover:bg-emerald-950/50 border-emerald-500/30';
+                    } else if (dayData.netPnL < 0) {
+                        cardStyle = 'bg-rose-950/30 hover:bg-rose-950/50 border-rose-500/30';
+                    }
+                }
+
+                dayCard.className = `h-20 sm:h-24 p-2 rounded-lg border transition flex flex-col justify-between ${cardStyle} ${isToday ? 'ring-2 ring-accentPurple' : ''}`;
+
+                let innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold ${isToday ? 'text-accentPurple font-black' : 'text-slate-400'}">${day}</span>
+                        ${dayData ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">${dayData.count} trades</span>` : ''}
+                    </div>
+                `;
+
+                if (dayData) {
+                    const pnlClass = dayData.netPnL >= 0 ? 'text-pnlGreen' : 'text-pnlRed';
+                    innerHTML += `
+                        <div class="text-right mt-auto">
+                            <span class="text-xs sm:text-sm font-extrabold ${pnlClass}">
+                                ${dayData.netPnL >= 0 ? '+' : ''}${formatCurrency(dayData.netPnL)}
+                            </span>
+                        </div>
+                    `;
+                } else {
+                    innerHTML += `<div></div>`;
+                }
+
+                dayCard.innerHTML = innerHTML;
+                grid.appendChild(dayCard);
+            }
+        }
+
+        function renderDailyTable() {
+            const tbody = document.getElementById('dailyTableBody');
+            tbody.innerHTML = '';
+
+            const dailyMap = {};
+            state.trades.forEach(t => {
+                const dateKey = t.exitTime.toISOString().split('T')[0];
+                if (!dailyMap[dateKey]) {
+                    dailyMap[dateKey] = { date: t.exitTime, count: 0, pnl: 0 };
+                }
+                dailyMap[dateKey].count += 1;
+                dailyMap[dateKey].pnl += t.netPnL;
+            });
+
+            const sortedDates = Object.values(dailyMap).sort((a, b) => b.date - a.date);
+            document.getElementById('dailyDaysCount').textContent = `${sortedDates.length} Days`;
+
+            if (sortedDates.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-8 text-textMuted">No data loaded</td></tr>`;
+                return;
+            }
+
+            sortedDates.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition';
+                const pnlClass = d.pnl >= 0 ? 'text-pnlGreen' : 'text-pnlRed';
+
+                tr.innerHTML = `
+                    <td class="p-2 font-medium text-slate-200">${d.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                    <td class="p-2 text-center text-slate-400">${d.count}</td>
+                    <td class="p-2 text-right font-bold ${pnlClass}">${d.pnl >= 0 ? '+' : ''}${formatCurrency(d.pnl)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTradesTable() {
+            const tbody = document.getElementById('tradesTableBody');
+            tbody.innerHTML = '';
+
+            let filtered = state.trades.filter(t => {
+                const query = state.searchQuery;
+                const matchesSearch = t.symbol.toLowerCase().includes(query) || 
+                                     t.entryTime.toLocaleDateString().includes(query);
+                const matchesSide = state.sideFilter === 'ALL' || t.side === state.sideFilter;
+                return matchesSearch && matchesSide;
+            });
+
+            filtered.sort((a, b) => b.exitTime - a.exitTime);
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-12 text-textMuted">No matching trades found</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(t => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition border-b border-borderDark/30';
+                const pnlClass = t.netPnL >= 0 ? 'text-pnlGreen' : 'text-pnlRed';
+                const sideBadge = t.side === 'LONG' ? 'bg-emerald-500/10 text-pnlGreen border-emerald-500/20' : 'bg-rose-500/10 text-pnlRed border-rose-500/20';
+
+                tr.innerHTML = `
+                    <td class="p-2 text-slate-300">${formatDateTime(t.entryTime)}</td>
+                    <td class="p-2 text-slate-300">${formatDateTime(t.exitTime)}</td>
+                    <td class="p-2 font-bold text-white">${t.symbol}</td>
+                    <td class="p-2"><span class="px-2 py-0.5 text-[10px] font-bold rounded border ${sideBadge}">${t.side}</span></td>
+                    <td class="p-2 text-right font-medium text-slate-200">${t.qty.toLocaleString()}</td>
+                    <td class="p-2 text-right text-slate-300">$${t.entryPrice.toFixed(2)}</td>
+                    <td class="p-2 text-right text-slate-300">$${t.exitPrice.toFixed(2)}</td>
+                    <td class="p-2 text-center text-slate-400">${formatDuration(t.durationMs)}</td>
+                    <td class="p-2 text-right text-slate-400">$${t.fee.toFixed(2)}</td>
+                    <td class="p-2 text-right font-bold ${pnlClass}">${t.netPnL >= 0 ? '+' : ''}${formatCurrency(t.netPnL)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function formatCurrency(val) {
+            return '$' + Math.abs(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatDateTime(d) {
+            return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }) + ' ' +
+                   d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        }
+
+        function formatDuration(ms) {
+            if (!ms || ms <= 0) return '0s';
+            const totalSecs = Math.floor(ms / 1000);
+            const hrs = Math.floor(totalSecs / 3600);
+            const mins = Math.floor((totalSecs % 3600) / 60);
+            const secs = totalSecs % 60;
+
+            if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
+            if (mins > 0) return `${mins}m ${secs}s`;
+            return `${secs}s`;
+        }
+    </script>
+</body>
+</html>
